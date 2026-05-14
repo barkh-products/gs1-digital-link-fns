@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { calculateGs1CheckDigit, decodeDigitalLink, encodeDigitalLink, type AiPair } from "../src/index.js";
 
-const expectOk = <A>(result: { readonly tag: "Ok"; readonly value: A } | { readonly tag: "Err"; readonly error: unknown }): A => {
-  expect(result.tag).toBe("Ok");
+const expectOk = <A>(result: { readonly ok: true; readonly value: A } | { readonly ok: false; readonly error: unknown }): A => {
+  expect(result.ok).toBe(true);
 
-  if (result.tag === "Err") {
+  if (!result.ok) {
     throw new Error(JSON.stringify(result.error));
   }
 
@@ -124,7 +124,7 @@ describe("GS1 URI Syntax 1.6.0 section 4.2 character sets and percent encoding",
         stem: "https://id.gs1.org",
         primary: { ai: "8010", value: invalidPrimaryValues["8010"]! }
       })
-    ).toMatchObject({ tag: "Err", error: { code: "InvalidValue", ai: "8010" } });
+    ).toMatchObject({ ok: false, error: { code: "InvalidValue", ai: "8010" } });
   });
 
   it("accepts ZCHAR in digital signature data attributes and rejects non-ZCHAR symbols", () => {
@@ -137,7 +137,7 @@ describe("GS1 URI Syntax 1.6.0 section 4.2 character sets and percent encoding",
         primary: { ai: "01", value: primaryValues["01"]! },
         attributes: [{ ai: "8030", value: "ABC!" }]
       })
-    ).toMatchObject({ tag: "Err", error: { code: "InvalidValue", ai: "8030" } });
+    ).toMatchObject({ ok: false, error: { code: "InvalidValue", ai: "8030" } });
   });
 });
 
@@ -152,7 +152,7 @@ describe("GS1 URI Syntax 1.6.0 sections 4.3 and 4.5 primary identifier keys", ()
       })
     );
 
-    expect(decodeDigitalLink(uri)).toMatchObject({ tag: "Ok", value: { primary: { ai, value: primaryValues[ai]! } } });
+    expect(decodeDigitalLink(uri)).toMatchObject({ ok: true, value: { primary: { ai, value: primaryValues[ai]! } } });
   });
 
   it.each(Object.keys(invalidPrimaryValues))("rejects primary AI %s values outside its specified format", (ai) => {
@@ -162,7 +162,7 @@ describe("GS1 URI Syntax 1.6.0 sections 4.3 and 4.5 primary identifier keys", ()
         primary: { ai, value: invalidPrimaryValues[ai]! },
         qualifiers: requiredQualifiers[ai] ?? []
       })
-    ).toMatchObject({ tag: "Err", error: { code: "InvalidValue", ai } });
+    ).toMatchObject({ ok: false, error: { code: "InvalidValue", ai } });
   });
 
   it.each([
@@ -185,7 +185,7 @@ describe("GS1 URI Syntax 1.6.0 sections 4.3 and 4.5 primary identifier keys", ()
         primary: { ai, value },
         qualifiers: requiredQualifiers[ai] ?? []
       })
-    ).toMatchObject({ tag: "Err", error: { code: "InvalidCheckDigit", ai } });
+    ).toMatchObject({ ok: false, error: { code: "InvalidCheckDigit", ai } });
   });
 
   it("rejects query primary AI 8003 with an invalid GRAI check digit", () => {
@@ -195,7 +195,7 @@ describe("GS1 URI Syntax 1.6.0 sections 4.3 and 4.5 primary identifier keys", ()
         primary: { ai: "01", value: primaryValues["01"]! },
         attributes: [{ ai: "8003", value: "01234567890129ABC" }]
       })
-    ).toMatchObject({ tag: "Err", error: { code: "InvalidCheckDigit", ai: "8003" } });
+    ).toMatchObject({ ok: false, error: { code: "InvalidCheckDigit", ai: "8003" } });
   });
 });
 
@@ -231,7 +231,7 @@ describe("GS1 URI Syntax 1.6.0 sections 4.4, 4.6, 4.8, and 4.9 key qualifiers", 
         primary: { ai: primaryAi, value: primaryValues[primaryAi]! },
         qualifiers: [{ ai: qualifierAi, value: invalidQualifierValues[qualifierAi]! }]
       })
-    ).toMatchObject({ tag: "Err", error: { code: "InvalidValue", ai: qualifierAi } });
+    ).toMatchObject({ ok: false, error: { code: "InvalidValue", ai: qualifierAi } });
   });
 
   it.each([
@@ -293,7 +293,7 @@ describe("GS1 URI Syntax 1.6.0 sections 4.4, 4.6, 4.8, and 4.9 key qualifiers", 
         primary: { ai: primaryAi, value: primaryValues[primaryAi]! },
         qualifiers: qualifiers.map((ai) => ({ ai, value: qualifierValues[ai]! }))
       })
-    ).toMatchObject({ tag: "Err" });
+    ).toMatchObject({ ok: false });
   });
 });
 
@@ -436,7 +436,7 @@ describe("GS1 URI Syntax 1.6.0 section 4.10 data attributes", () => {
   it.each(attributeCases)("accepts query data attribute AI %s with its specified value format", (ai, value) => {
     const uri = encodeWithAttribute({ ai, value });
 
-    expect(decodeDigitalLink(uri)).toMatchObject({ tag: "Ok", value: { attributes: [{ ai, value }] } });
+    expect(decodeDigitalLink(uri)).toMatchObject({ ok: true, value: { attributes: [{ ai, value }] } });
   });
 
   it.each([
@@ -451,7 +451,7 @@ describe("GS1 URI Syntax 1.6.0 section 4.10 data attributes", () => {
         primary: { ai: "01", value: primaryValues["01"]! },
         attributes: [{ ai, value }]
       })
-    ).toMatchObject({ tag: "Err", error: { code: "UnsupportedAttribute", ai } });
+    ).toMatchObject({ ok: false, error: { code: "UnsupportedAttribute", ai } });
   });
 
   it.each([
@@ -470,19 +470,19 @@ describe("GS1 URI Syntax 1.6.0 section 4.10 data attributes", () => {
         primary: { ai: "01", value: primaryValues["01"]! },
         attributes: [{ ai, value }]
       })
-    ).toMatchObject({ tag: "Err", error: { code: "InvalidCheckDigit", ai } });
+    ).toMatchObject({ ok: false, error: { code: "InvalidCheckDigit", ai } });
   });
 });
 
 describe("GS1 General Specifications check digit algorithm", () => {
   it("calculates GS1 modulo-10 check digits", () => {
-    expect(calculateGs1CheckDigit("0952012345678")).toEqual({ tag: "Ok", value: "8" });
-    expect(calculateGs1CheckDigit("952012345678")).toEqual({ tag: "Ok", value: "8" });
-    expect(calculateGs1CheckDigit("12345678901234567")).toEqual({ tag: "Ok", value: "5" });
+    expect(calculateGs1CheckDigit("0952012345678")).toEqual({ ok: true, value: "8" });
+    expect(calculateGs1CheckDigit("952012345678")).toEqual({ ok: true, value: "8" });
+    expect(calculateGs1CheckDigit("12345678901234567")).toEqual({ ok: true, value: "5" });
   });
 
   it("rejects non-numeric check digit calculation input", () => {
-    expect(calculateGs1CheckDigit("ABC")).toMatchObject({ tag: "Err", error: { code: "InvalidValue" } });
+    expect(calculateGs1CheckDigit("ABC")).toMatchObject({ ok: false, error: { code: "InvalidValue" } });
   });
 });
 
@@ -495,7 +495,7 @@ describe("GS1 URI Syntax 1.6.0 sections 4.10.1 and 4.11 query and URI constructi
   ])("accepts extension parameter %s=%s", (ai, value) => {
     const uri = encodeWithAttribute({ ai, value });
 
-    expect(decodeDigitalLink(uri)).toMatchObject({ tag: "Ok", value: { attributes: [{ ai, value }] } });
+    expect(decodeDigitalLink(uri)).toMatchObject({ ok: true, value: { attributes: [{ ai, value }] } });
   });
 
   it.each(["linkType", "context"])("rejects reserved resolver extension key %s", (ai) => {
@@ -505,7 +505,7 @@ describe("GS1 URI Syntax 1.6.0 sections 4.10.1 and 4.11 query and URI constructi
         primary: { ai: "01", value: primaryValues["01"]! },
         attributes: [{ ai, value: "abc" }]
       })
-    ).toMatchObject({ tag: "Err", error: { code: "ReservedExtensionKey", ai } });
+    ).toMatchObject({ ok: false, error: { code: "ReservedExtensionKey", ai } });
   });
 
   it.each([
@@ -518,20 +518,20 @@ describe("GS1 URI Syntax 1.6.0 sections 4.10.1 and 4.11 query and URI constructi
         primary: { ai: "01", value: primaryValues["01"]! },
         attributes: [{ ai, value }]
       })
-    ).toMatchObject({ tag: "Err", error: { code: "InvalidQuery", ai } });
+    ).toMatchObject({ ok: false, error: { code: "InvalidQuery", ai } });
   });
 
   it("accepts uppercase HTTP and HTTPS schemes, ports, and custom stem path segments", () => {
     expect(decodeDigitalLink("HTTPS://brand.example.com:8443/some-extra/pathinfo/01/09520123456788")).toMatchObject({
-      tag: "Ok",
+      ok: true,
       value: { stem: "https://brand.example.com:8443/some-extra/pathinfo" }
     });
-    expect(decodeDigitalLink("HTTP://brand.example.com/01/09520123456788")).toMatchObject({ tag: "Ok" });
+    expect(decodeDigitalLink("HTTP://brand.example.com/01/09520123456788")).toMatchObject({ ok: true });
   });
 
   it("treats plus as a literal RFC 3986 query character rather than form-encoded space", () => {
     expect(decodeDigitalLink("https://id.gs1.org/01/09520123456788?a+b=c+d")).toMatchObject({
-      tag: "Ok",
+      ok: true,
       value: { attributes: [{ ai: "a+b", value: "c+d" }] }
     });
   });
@@ -547,6 +547,6 @@ describe("GS1 URI Syntax 1.6.0 sections 4.10.1 and 4.11 query and URI constructi
         ],
         attributes: [{ ai: "17", value: "250101" }]
       })
-    ).toEqual({ tag: "Ok", value: "https://id.gs1.org/01/09520123456788/10/ABC123/21/SERIAL123?17=250101" });
+    ).toEqual({ ok: true, value: "https://id.gs1.org/01/09520123456788/10/ABC123/21/SERIAL123?17=250101" });
   });
 });

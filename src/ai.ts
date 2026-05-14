@@ -290,7 +290,7 @@ export const validatePrimary = (pair: AiPair): Result<DigitalLinkError, AiPair> 
   if (pair.ai === "8003") {
     const checkDigitResult = validateGs1CheckDigit(pair.ai, pair.value.slice(1, 14), 12);
 
-    return checkDigitResult.tag === "Ok" ? ok(pair) : checkDigitResult;
+    return checkDigitResult.ok ? ok(pair) : checkDigitResult;
   }
 
   const checkDigitIndex = primaryCheckDigitIndex[pair.ai as keyof typeof primaryCheckDigitIndex];
@@ -298,7 +298,7 @@ export const validatePrimary = (pair: AiPair): Result<DigitalLinkError, AiPair> 
   if (checkDigitIndex !== undefined) {
     const checkDigitResult = validateGs1CheckDigit(pair.ai, pair.value, checkDigitIndex);
 
-    return checkDigitResult.tag === "Ok" ? ok(pair) : checkDigitResult;
+    return checkDigitResult.ok ? ok(pair) : checkDigitResult;
   }
 
   return ok(pair);
@@ -380,13 +380,13 @@ export const validateAttributes = (attributes: readonly AiPair[]): Result<Digita
       if (attribute.ai === "8003") {
         const checkDigitResult = validateGs1CheckDigit(attribute.ai, attribute.value.slice(1, 14), 12);
 
-        if (checkDigitResult.tag === "Err") {
+        if (!checkDigitResult.ok) {
           return checkDigitResult;
         }
       } else if (primaryCheckDigit !== undefined || attributeCheckDigit !== undefined) {
         const checkDigitResult = validateGs1CheckDigit(attribute.ai, attribute.value, primaryCheckDigit ?? attributeCheckDigit!);
 
-        if (checkDigitResult.tag === "Err") {
+        if (!checkDigitResult.ok) {
           return checkDigitResult;
         }
       }

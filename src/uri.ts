@@ -279,4 +279,4 @@ export const encodeDigitalLink = (link: DigitalLink): Result<DigitalLinkError, s
   return ok(`${base}${query}`);
 };
 
-export const isDigitalLinkUri = (uri: string): boolean => decodeDigitalLink(uri).tag === "Ok";
+export const isDigitalLinkUri = (uri: string): boolean => decodeDigitalLink(uri).ok;

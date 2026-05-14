@@ -61,8 +61,8 @@ Out of scope for this URI syntax library:
 
 ```ts
 type Result<E, A> =
-  | { readonly tag: "Ok"; readonly value: A }
-  | { readonly tag: "Err"; readonly error: E };
+  | { readonly ok: true; readonly value: A }
+  | { readonly ok: false; readonly error: E };
 
 type AiPair = {
   readonly ai: string;

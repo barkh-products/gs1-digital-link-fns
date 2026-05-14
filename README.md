@@ -1,57 +1,25 @@
 # gs1-digital-link-fns
 
-Production-ready functional TypeScript utilities for encoding, decoding, and validating uncompressed GS1 Digital Link URIs.
+[![CI](https://github.com/barkh-products/gs1-digital-link-fns/actions/workflows/ci.yml/badge.svg)](https://github.com/barkh-products/gs1-digital-link-fns/actions/workflows/ci.yml)
 
-The library targets **GS1 Digital Link URI Syntax 1.6.0**. Its public API is pure, typed, and returns `Result` values instead of throwing for user-input validation failures.
+A small, production-ready TypeScript library for working with uncompressed GS1 Digital Link URIs.
 
-## Installation
+`gs1-digital-link-fns` helps you turn structured GS1 Application Identifier data into valid Digital Link URLs, and parse those URLs back into typed data. It is built for services and applications that need predictable validation, no runtime dependencies, and explicit error handling.
+
+The implementation targets **GS1 Digital Link URI Syntax 1.6.0**.
+
+## Install
 
 ```sh
 npm install gs1-digital-link-fns
 ```
 
-Runtime requirements:
+Requirements:
 
 - Node.js 22 or newer
-- ESM-compatible TypeScript or JavaScript project
+- ESM-compatible JavaScript or TypeScript project
 
-Runtime dependency policy:
-
-- Zero package runtime dependencies
-- No peer, optional, bundled, or transitive runtime dependency contract
-- No bare external runtime imports from `src`
-
-## What It Does
-
-- Encodes structured GS1 Digital Link data into uncompressed HTTP/HTTPS URIs.
-- Decodes uncompressed GS1 Digital Link URIs into typed data.
-- Validates primary identifier keys from URI Syntax 1.6.0.
-- Validates key qualifier formats and allowed qualifier path variants.
-- Validates GS1 data attributes and extension query parameters.
-- Validates GS1 check digits where the URI syntax validation guidance identifies a check digit position.
-- Normalizes GTIN-8, GTIN-12, GTIN-13, and GTIN-14 values to the 14-digit Digital Link path form.
-- Preserves custom URI stems before the GS1 path.
-- Percent-encodes path and query values according to the URI syntax character rules.
-
-## Scope
-
-Included:
-
-- Uncompressed GS1 Digital Link URI syntax
-- HTTP and HTTPS URI schemes
-- Numeric AI path components
-- Query data attributes and extension parameters
-- Duplicate query keys collapsed by last value
-- Query strings delimited by either `&` or `;`
-
-Not included:
-
-- Compressed Digital Link URI syntax
-- GS1 resolver behavior
-- Resolver Description File validation
-- Element string parsing
-- FNC1 group separator handling
-- Semantic relationship rules from the GS1 General Specifications
+The package has no runtime dependencies.
 
 ## Quick Start
 
@@ -78,11 +46,48 @@ if (isOk(decoded)) {
 }
 ```
 
+## Design
+
+The public API is intentionally functional:
+
+- Functions are pure.
+- Validation failures are returned as `Result` values instead of thrown exceptions.
+- GS1 AI values are kept as strings because leading zeroes are significant.
+- Input and output types are readonly.
+- Encoding and decoding do not depend on process state, clocks, network calls, or global configuration.
+
+This makes the library straightforward to use in request handlers, background jobs, validation pipelines, and tests.
+
+## What Is Supported
+
+The library covers the uncompressed URI syntax parts of GS1 Digital Link URI Syntax 1.6.0:
+
+- HTTP and HTTPS Digital Link URIs
+- Numeric AI path components
+- Custom URI stems before the GS1 path
+- Primary identifier keys listed by the URI syntax standard
+- Key qualifier formats and allowed path variants
+- GS1 data attributes in query parameters
+- Extension query parameters
+- GS1 check digit validation where identified by the Digital Link validation guidance
+- Percent-encoding for path and query values
+- Duplicate query keys, with the last value taking precedence
+- Query strings using either `&` or `;` delimiters
+
+It does not implement:
+
+- Compressed Digital Link URI syntax
+- GS1 resolver behavior
+- Resolver Description File validation
+- Element string parsing
+- FNC1 group separator handling
+- Semantic relationship rules from the GS1 General Specifications
+
 ## API
 
 ### `encodeDigitalLink(link)`
 
-Encodes a structured `DigitalLink` object as a GS1 Digital Link URI.
+Encodes a structured `DigitalLink` object into a GS1 Digital Link URI.
 
 ```ts
 type DigitalLink = {
@@ -98,41 +103,45 @@ type AiPair = {
 };
 ```
 
-Returns:
-
 ```ts
-Result<DigitalLinkError, string>
+const result = encodeDigitalLink({
+  stem: "https://id.gs1.org",
+  primary: { ai: "01", value: "09520123456788" },
+  qualifiers: [{ ai: "21", value: "SERIAL123" }]
+});
 ```
+
+Returns `Result<DigitalLinkError, string>`.
 
 ### `decodeDigitalLink(uri)`
 
 Parses, validates, and decodes an uncompressed GS1 Digital Link URI.
 
-Returns:
-
 ```ts
-Result<DigitalLinkError, DigitalLink>
+const result = decodeDigitalLink("https://id.gs1.org/01/09520123456788/21/SERIAL123");
 ```
+
+Returns `Result<DigitalLinkError, DigitalLink>`.
 
 ### `isDigitalLinkUri(uri)`
 
-Returns `true` when `decodeDigitalLink(uri)` succeeds.
+Returns `true` when a URI can be decoded as a supported GS1 Digital Link URI.
 
 ```ts
-import { isDigitalLinkUri } from "gs1-digital-link-fns";
-
 isDigitalLinkUri("https://id.gs1.org/01/09520123456788");
 ```
 
 ### `normalizeGtin(value)`
 
-Pads GTIN-8, GTIN-12, and GTIN-13 values to the 14-digit Digital Link path form.
+Normalizes GTIN-8, GTIN-12, GTIN-13, or GTIN-14 input to the 14-digit Digital Link path form.
 
 ```ts
-import { normalizeGtin } from "gs1-digital-link-fns";
-
 const gtin = normalizeGtin("9520123456788");
-// Ok("09520123456788")
+
+if (isOk(gtin)) {
+  console.log(gtin.value);
+  // 09520123456788
+}
 ```
 
 ### `calculateGs1CheckDigit(valueWithoutCheckDigit)`
@@ -140,15 +149,33 @@ const gtin = normalizeGtin("9520123456788");
 Calculates the GS1 modulo-10 check digit for a numeric value body.
 
 ```ts
-import { calculateGs1CheckDigit } from "gs1-digital-link-fns";
-
 const digit = calculateGs1CheckDigit("0952012345678");
-// Ok("8")
+
+if (isOk(digit)) {
+  console.log(digit.value);
+  // 8
+}
 ```
 
-## Result Handling
+### Extraction helpers
 
-Validation errors are returned as data.
+Decoded links keep AI/value pairs in their GS1 form. For application code that wants named accessors, the package also exports lookup maps and small extraction helpers:
+
+```ts
+const link = decodeDigitalLink("https://id.example/01/09520123456788/10/LOT123?17=250101");
+
+if (isOk(link)) {
+  extractPrimaryValue(link.value, "GTIN");
+  extractQualifierValue(link.value, "LOT");
+  extractAttributeValue(link.value, "EXPIRY_DATE");
+}
+```
+
+You can pass semantic keys such as `GTIN`, lookup keys such as `AI_01`, or raw AI strings such as `01`.
+
+## Handling Errors
+
+Every validation function returns a boolean-discriminated `Result` union, so validation errors are handled as data. You can narrow with `isOk`, `isErr`, or `result.ok`.
 
 ```ts
 import { encodeDigitalLink, isErr } from "gs1-digital-link-fns";
@@ -164,7 +191,7 @@ if (isErr(result)) {
 }
 ```
 
-The package also exports small `Result` helpers:
+The package also exports small `Result` helpers for composition-heavy code:
 
 - `ok`
 - `err`
@@ -172,8 +199,6 @@ The package also exports small `Result` helpers:
 - `isErr`
 - `map`
 - `flatMap`
-
-## Error Codes
 
 `DigitalLinkError.code` is one of:
 
@@ -191,7 +216,7 @@ The package also exports small `Result` helpers:
 - `LegacyConvenienceAlpha`
 - `ReservedExtensionKey`
 
-## Conformance And Testing
+## Conformance
 
 The test suite is mapped to GS1 Digital Link URI Syntax 1.6.0 and enforces 100% coverage for statements, branches, functions, and lines.
 
@@ -206,10 +231,10 @@ npm run check
 - Vitest with coverage
 - ESM and declaration builds through `tsdown`
 
-Additional project notes:
+More detail:
 
 - [docs/specification.md](docs/specification.md) describes the supported URI syntax scope.
-- [docs/testing.md](docs/testing.md) describes the standard-based test coverage.
+- [docs/testing.md](docs/testing.md) explains how the test suite maps back to the standard.
 
 ## Development
 
@@ -228,4 +253,4 @@ npm run build
 npm run check:runtime-deps
 ```
 
-The project is configured for TypeScript 7 beta through `@typescript/native-preview` and `tsgo`. `typescript` is kept as a compatibility dependency for tools that still resolve the classic package.
+The project currently uses TypeScript 7 beta through `@typescript/native-preview` and `tsgo`. `typescript` is kept as a compatibility dependency for tools that still resolve the classic package.
