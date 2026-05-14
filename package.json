@@ -1,0 +1,39 @@
+{
+  "name": "gs1-digital-link-fns",
+  "version": "0.0.0",
+  "description": "Functional TypeScript utilities for GS1 Digital Link URI encoding and decoding.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist",
+    "README.md",
+    "docs"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts --format esm --dts",
+    "check": "npm run typecheck && npm run coverage && npm run build",
+    "coverage": "vitest run --coverage",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsgo --noEmit"
+  },
+  "devDependencies": {
+    "@typescript/native-preview": "beta",
+    "@vitest/coverage-v8": "^4.1.6",
+    "tsdown": "^0.21.9",
+    "typescript": "^6.0.0",
+    "vitest": "^4.1.6"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
