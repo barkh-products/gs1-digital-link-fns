@@ -24,7 +24,7 @@ The package has no runtime dependencies.
 ## Quick Start
 
 ```ts
-import { decodeDigitalLink, encodeDigitalLink, isOk } from "gs1-digital-link-fns";
+import { decodeDigitalLink, encodeDigitalLink } from "gs1-digital-link-fns";
 
 const encoded = encodeDigitalLink({
   stem: "https://id.example",
@@ -33,18 +33,41 @@ const encoded = encodeDigitalLink({
   attributes: [{ ai: "17", value: "250101" }]
 });
 
-if (isOk(encoded)) {
+if (encoded.ok) {
   console.log(encoded.value);
   // https://id.example/01/09520123456788/10/ABC%2F123?17=250101
 }
 
 const decoded = decodeDigitalLink("https://id.example/01/09520123456788/10/ABC%2F123?17=250101");
 
-if (isOk(decoded)) {
+if (decoded.ok) {
   console.log(decoded.value.primary);
   // { ai: "01", value: "09520123456788" }
 }
 ```
+
+## Extracting Values
+
+Decoded links keep GS1 values as AI/value pairs, but helpers are available when application code wants named fields.
+
+```ts
+import { decodeDigitalLink, extractAttributeValue, extractQualifierValue } from "gs1-digital-link-fns";
+
+const result = decodeDigitalLink("https://id.example/01/09520123456788/10/LOT123?17=250101");
+
+if (result.ok) {
+  const expiryDate = extractAttributeValue(result.value, "EXPIRY_DATE");
+  const lot = extractQualifierValue(result.value, "BATCH_OR_LOT");
+}
+```
+
+Extractor keys can be:
+
+- semantic keys such as `EXPIRY_DATE`, `BATCH_OR_LOT`, or `PAYMENT_REFERENCE`
+- generated AI keys such as `AI_17`, `AI_10`, or `AI_8020`
+- raw AI strings such as `17`, `10`, or `8020`
+
+The package exports `attributeKeyToAi`, `qualifierKeyToAi`, `primaryKeyToAi`, and `allKeyToAi`. These lookup maps are generated from the documented AI catalogue encoded by the library, so every supported documented AI has at least an `AI_<code>` key.
 
 ## Design
 

@@ -79,6 +79,8 @@ type DigitalLink = {
 declare const encodeDigitalLink: (link: DigitalLink) => Result<DigitalLinkError, string>;
 declare const decodeDigitalLink: (uri: string) => Result<DigitalLinkError, DigitalLink>;
 declare const normalizeGtin: (value: string) => Result<DigitalLinkError, string>;
+declare const extractAttributeValue: (link: DigitalLink, key: string) => string | undefined;
+declare const extractQualifierValue: (link: DigitalLink, key: string) => string | undefined;
 ```
 
 ## Acceptance Tests
