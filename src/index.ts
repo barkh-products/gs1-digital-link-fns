@@ -23,5 +23,13 @@ export {
   type KnownPrimaryKey,
   type KnownQualifierKey
 } from "./extract.js";
+export { decodeCompressedDigitalLink, encodeCompressedDigitalLink, isCompressedPathSegment } from "./compressed.js";
 export { decodeDigitalLink, encodeDigitalLink, isDigitalLinkUri } from "./uri.js";
-export type { AiPair, DigitalLink, DigitalLinkError, DigitalLinkErrorCode } from "./types.js";
+export type {
+  AiPair,
+  CompressedDigitalLinkFormat,
+  DigitalLink,
+  DigitalLinkError,
+  DigitalLinkErrorCode,
+  Sgtin96CompressionOptions
+} from "./types.js";

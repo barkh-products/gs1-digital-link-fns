@@ -6,6 +6,7 @@ import {
   validatePrimary,
   validateQualifiers
 } from "./ai.js";
+import { decodeCompressedDigitalLink, isCompressedPathSegment } from "./compressed.js";
 import { err, isErr, ok, type Result } from "./result.js";
 import type { AiPair, DigitalLink, DigitalLinkError } from "./types.js";
 
@@ -159,6 +160,11 @@ export const decodeDigitalLink = (uri: string): Result<DigitalLinkError, Digital
   }
 
   const pathSegments = parsed.value.pathname.split("/").filter((segment) => segment.length > 0);
+
+  if (pathSegments.length > 0 && isCompressedPathSegment(pathSegments.at(-1)!)) {
+    return decodeCompressedDigitalLink(uri);
+  }
+
   const primaryIndex = findPrimaryIndex(pathSegments);
 
   if (isErr(primaryIndex)) {

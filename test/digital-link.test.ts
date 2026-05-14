@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  decodeCompressedDigitalLink,
   decodeDigitalLink,
+  encodeCompressedDigitalLink,
   encodeDigitalLink,
   extractAttributeValue,
   extractPrimaryValue,
@@ -426,6 +428,228 @@ describe("GS1 Digital Link URI decoding", () => {
   it("exposes a boolean recognizer", () => {
     expect(isDigitalLinkUri("https://id.example/01/09520123456788")).toBe(true);
     expect(isDigitalLinkUri("urn:epc:id:sgtin:0614141.112345.400")).toBe(false);
+  });
+});
+
+describe("Compressed GS1 Digital Link URI syntax", () => {
+  const sgtin96Link: DigitalLink = {
+    stem: "https://example.com",
+    primary: { ai: "01", value: "09528765123457" },
+    qualifiers: [{ ai: "21", value: "123456789123" }]
+  };
+
+  it("decodes the official SGTIN-96 hex-compressed worked example", () => {
+    expect(decodeCompressedDigitalLink("https://example.com/eh30164596f40c0e5cbe991a83")).toEqual({
+      ok: true,
+      value: {
+        ...sgtin96Link,
+        attributes: []
+      }
+    });
+  });
+
+  it("decodes the official SGTIN-96 base64url-compressed worked example through the general decoder", () => {
+    expect(decodeDigitalLink("https://example.com/exMBZFlvQMDly-mRqD")).toEqual({
+      ok: true,
+      value: {
+        ...sgtin96Link,
+        attributes: []
+      }
+    });
+    expect(isDigitalLinkUri("https://example.com/exMBZFlvQMDly-mRqD")).toBe(true);
+  });
+
+  it("preserves custom stem path segments while decoding compressed URIs", () => {
+    expect(decodeDigitalLink("https://brand.example/path/exMBZFlvQMDly-mRqD")).toMatchObject({
+      ok: true,
+      value: { stem: "https://brand.example/path" }
+    });
+  });
+
+  it("encodes SGTIN-96 compressed URIs as hex or base64url", () => {
+    expect(
+      encodeCompressedDigitalLink(sgtin96Link, {
+        companyPrefixLength: 7,
+        filter: 0,
+        format: "hex"
+      })
+    ).toEqual({ ok: true, value: "https://example.com/eh30164596f40c0e5cbe991a83" });
+
+    expect(
+      encodeCompressedDigitalLink(sgtin96Link, {
+        companyPrefixLength: 7,
+        filter: 0,
+        format: "base64url"
+      })
+    ).toEqual({ ok: true, value: "https://example.com/exMBZFlvQMDly-mRqD" });
+  });
+
+  it("defaults compressed encoding to base64url", () => {
+    expect(
+      encodeCompressedDigitalLink(sgtin96Link, {
+        companyPrefixLength: 7
+      })
+    ).toEqual({ ok: true, value: "https://example.com/exMBZFlvQMDly-mRqD" });
+  });
+
+  it("rejects unsupported compressed payloads and invalid compressed URI structure", () => {
+    expect(decodeCompressedDigitalLink("not a uri")).toMatchObject({
+      ok: false,
+      error: { code: "InvalidUri" }
+    });
+    expect(decodeCompressedDigitalLink("https://example.com/exMBZFlvQMDly-mRqD?17=250101")).toMatchObject({
+      ok: false,
+      error: { code: "InvalidCompression" }
+    });
+    expect(decodeCompressedDigitalLink("https://example.com/xxMBZFlvQMDly-mRqD")).toMatchObject({
+      ok: false,
+      error: { code: "InvalidCompression" }
+    });
+    expect(decodeCompressedDigitalLink("ftp://example.com/exMBZFlvQMDly-mRqD")).toMatchObject({
+      ok: false,
+      error: { code: "UnsupportedScheme" }
+    });
+    expect(decodeCompressedDigitalLink("https://example.com/eh31164596f40c0e5cbe991a83")).toMatchObject({
+      ok: false,
+      error: { code: "UnsupportedCompressionScheme" }
+    });
+    expect(decodeCompressedDigitalLink("https://example.com/eh301e4596f40c0e5cbe991a83")).toMatchObject({
+      ok: false,
+      error: { code: "InvalidCompression" }
+    });
+    expect(decodeCompressedDigitalLink("https://example.com/eh30164596f40c0e5cbe991a8X")).toMatchObject({
+      ok: false,
+      error: { code: "InvalidCompression" }
+    });
+    expect(decodeCompressedDigitalLink("https://example.com/eh30164596f40c0e5cbe991a8")).toMatchObject({
+      ok: false,
+      error: { code: "InvalidCompression" }
+    });
+    expect(decodeCompressedDigitalLink("https://example.com/exMBZFlvQMDly-mRq")).toMatchObject({
+      ok: false,
+      error: { code: "InvalidCompression" }
+    });
+    expect(decodeCompressedDigitalLink("https://example.com/exMBZFlvQMDly-mRqD/")).toMatchObject({
+      ok: false,
+      error: { code: "InvalidCompression" }
+    });
+  });
+
+  it("rejects SGTIN-96 encoding inputs outside the supported EPC scheme", () => {
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          ...sgtin96Link,
+          primary: { ai: "01", value: "ABC" }
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "InvalidValue" } });
+
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          stem: "https://example.com",
+          primary: { ai: "00", value: "123456789012345675" }
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "UnsupportedCompressionScheme" } });
+
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          ...sgtin96Link,
+          qualifiers: []
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "InvalidCompression" } });
+
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          stem: "https://example.com",
+          primary: { ai: "01", value: "09528765123457" }
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "InvalidCompression" } });
+
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          ...sgtin96Link,
+          qualifiers: [
+            { ai: "21", value: "123" },
+            { ai: "10", value: "LOT" }
+          ]
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "InvalidPathOrder" } });
+
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          ...sgtin96Link,
+          qualifiers: [{ ai: "21", value: "ABC" }]
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "InvalidCompression" } });
+
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          ...sgtin96Link,
+          attributes: [{ ai: "17", value: "250101" }]
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "InvalidCompression" } });
+
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          ...sgtin96Link,
+          qualifiers: [{ ai: "21", value: "274877906944" }]
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "InvalidCompression" } });
+  });
+
+  it("rejects invalid compressed URI stems while encoding", () => {
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          ...sgtin96Link,
+          stem: "not a uri"
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "InvalidStem" } });
+
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          ...sgtin96Link,
+          stem: "ftp://example.com"
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "UnsupportedScheme" } });
+
+    expect(
+      encodeCompressedDigitalLink(
+        {
+          ...sgtin96Link,
+          stem: "https://example.com?x=1"
+        },
+        { companyPrefixLength: 7 }
+      )
+    ).toMatchObject({ ok: false, error: { code: "InvalidStem" } });
   });
 });
 

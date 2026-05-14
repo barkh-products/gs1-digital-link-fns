@@ -20,8 +20,12 @@ The test suite is intentionally tied to GS1 Digital Link URI Syntax 1.6.0:
 - Percent encoding of literal `/` characters in AI values is covered by the examples in section 5.
 - Percent encoding of literal `!`, `'`, `(`, `)`, and `*` is covered because JavaScript's standard `encodeURIComponent` does not escape those characters by default.
 - Fragment identifiers are rejected because the formal `referenceGS1webURI` and `uncompressedCustomGS1webURI` rules do not include fragments.
+- SGTIN-96 compressed URI support is covered with hex and base64url examples, including decoding through the general URI decoder.
+- Compression negative tests cover unsupported EPC headers, malformed compressed path segments, invalid stems, non-numeric serials, serial values beyond the 38-bit SGTIN-96 limit, and attempts to compress links with query attributes.
+- Extraction helper tests cover semantic lookup keys, rejected raw AI keys, absent fields, duplicate pairs, and generated lookup maps.
 
 Reference: https://ref.gs1.org/standards/digital-link/uri-syntax/
+Compression reference: https://ref.gs1.org/standards/digital-link/compression/
 
 Coverage is enforced at 100% for statements, branches, functions, and lines:
 

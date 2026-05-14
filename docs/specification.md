@@ -1,8 +1,9 @@
 # GS1 Digital Link Encoding/Decoding Specification
 
-Status: URI Syntax 1.6.0 conformance specification for the library's uncompressed URI encoder/decoder.
+Status: URI Syntax 1.6.0 conformance specification for the library's URI encoder/decoder.
 
 Target standard: GS1 Digital Link Standard: URI Syntax 1.6.0, ratified March 2025.
+Compression target standard: GS1 Digital Link URI: Compression Technical Standard for EPC binary strings 1.0.0, ratified July 2025.
 
 ## Source Notes
 
@@ -19,6 +20,7 @@ References:
 - https://gs1.se/en/guides/how-to-guides/how-gs1-digital-link-works/
 - https://ref.gs1.org/standards/digital-link/
 - https://ref.gs1.org/standards/digital-link/uri-syntax/
+- https://ref.gs1.org/standards/digital-link/compression/
 - https://github.com/gs1/digital-link.js/
 
 ## Library Design
@@ -33,7 +35,7 @@ The library is deliberately functional:
 
 ## Conformance Scope
 
-Version 0.0 targets the uncompressed URI syntax defined in GS1 Digital Link URI Syntax 1.6.0.
+Version 0.0 targets the uncompressed URI syntax defined in GS1 Digital Link URI Syntax 1.6.0, plus a focused SGTIN-96 compressed URI path implementation.
 
 Included:
 
@@ -49,6 +51,8 @@ Included:
 - Reject fragment identifiers because the formal section 4.11 URI patterns do not include fragments.
 - Accept the section 5 example URIs covered by the initial conformance suite.
 - Validate GS1 check digits where the Digital Link validation guidance identifies a check digit position: GTIN, ITIP, SSCC, GDTI, GLN, GRAI, GSRN, GSRN-P, GSIN, GCN, and data attributes `02` and `410` through `416`.
+- Decode supported SGTIN-96 compressed `eh...` and `ex...` path segments into GTIN + serial Digital Links.
+- Encode GTIN + serial Digital Links as SGTIN-96 compressed path segments, using either hex or base64url output.
 - Keep tests independent of `digital-link.js`; that package may be used temporarily while developing fixtures, but it is not a library or test-suite dependency.
 
 Out of scope for this URI syntax library:
@@ -56,6 +60,7 @@ Out of scope for this URI syntax library:
 - Element string parsing and FNC1 group separator handling.
 - Resolver behavior and Resolver Description File checks from GS1-Conformant Resolver Standard.
 - Semantic data relationship constraints from GS1 General Specifications section 4.14.
+- Compressed EPC schemes beyond the currently supported SGTIN-96 path form.
 
 ## API Sketch
 
@@ -76,11 +81,23 @@ type DigitalLink = {
   readonly attributes?: readonly AiPair[];
 };
 
+type Sgtin96CompressionOptions = {
+  readonly companyPrefixLength: 6 | 7 | 8 | 9 | 10 | 11 | 12;
+  readonly filter?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  readonly format?: "hex" | "base64url";
+};
+
 declare const encodeDigitalLink: (link: DigitalLink) => Result<DigitalLinkError, string>;
 declare const decodeDigitalLink: (uri: string) => Result<DigitalLinkError, DigitalLink>;
+declare const encodeCompressedDigitalLink: (
+  link: DigitalLink,
+  options: Sgtin96CompressionOptions
+) => Result<DigitalLinkError, string>;
+declare const decodeCompressedDigitalLink: (uri: string) => Result<DigitalLinkError, DigitalLink>;
 declare const normalizeGtin: (value: string) => Result<DigitalLinkError, string>;
 declare const extractAttributeValue: (link: DigitalLink, key: KnownAttributeKey) => string | undefined;
 declare const extractQualifierValue: (link: DigitalLink, key: KnownQualifierKey) => string | undefined;
+declare const extractPrimaryValue: (link: DigitalLink, key: KnownPrimaryKey) => string | undefined;
 ```
 
 ## Acceptance Tests
@@ -97,3 +114,5 @@ declare const extractQualifierValue: (link: DigitalLink, key: KnownQualifierKey)
 - `https://id.gs1.org/414/9520123456788/254/32a%2Fb` decodes the qualifier value as `32a/b`.
 - Query parameter `236=12098` is rejected because all-numeric extension keys are forbidden and AI `236` is not a defined data attribute.
 - Query parameter `23P=12098` is accepted as an extension parameter.
+- `https://example.com/eh30164596f40c0e5cbe991a83` decodes as GTIN `09528765123457` with serial `123456789123`.
+- `https://example.com/exMBZFlvQMDly-mRqD` decodes as GTIN `09528765123457` with serial `123456789123`.

@@ -22,6 +22,8 @@ export type DigitalLinkErrorCode =
   | "InvalidPathOrder"
   | "InvalidStem"
   | "InvalidQuery"
+  | "InvalidCompression"
+  | "UnsupportedCompressionScheme"
   | "LegacyConvenienceAlpha"
   | "ReservedExtensionKey";
 
@@ -29,4 +31,12 @@ export type DigitalLinkError = {
   readonly code: DigitalLinkErrorCode;
   readonly message: string;
   readonly ai?: string;
+};
+
+export type CompressedDigitalLinkFormat = "hex" | "base64url";
+
+export type Sgtin96CompressionOptions = {
+  readonly companyPrefixLength: 6 | 7 | 8 | 9 | 10 | 11 | 12;
+  readonly filter?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  readonly format?: CompressedDigitalLinkFormat;
 };

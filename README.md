@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/barkh-products/gs1-digital-link-fns/actions/workflows/ci.yml/badge.svg)](https://github.com/barkh-products/gs1-digital-link-fns/actions/workflows/ci.yml)
 
-A small, production-ready TypeScript library for working with uncompressed GS1 Digital Link URIs.
+A small, production-ready TypeScript library for working with GS1 Digital Link URIs.
 
 `gs1-digital-link-fns` helps you turn structured GS1 Application Identifier data into valid Digital Link URLs, and parse those URLs back into typed data. It is built for services and applications that need predictable validation, no runtime dependencies, and explicit error handling.
 
-The implementation targets **GS1 Digital Link URI Syntax 1.6.0**.
+The implementation targets **GS1 Digital Link URI Syntax 1.6.0**. The main API covers uncompressed Digital Link URIs, with focused SGTIN-96 compression support for GTIN + serial links.
 
 ## Install
 
@@ -73,7 +73,7 @@ The package exports `attributeKeyToAi`, `qualifierKeyToAi`, `primaryKeyToAi`, an
 The public API is intentionally functional:
 
 - Functions are pure.
-- Validation failures are returned as `Result` values instead of thrown exceptions.
+- Validation failures are returned as typed result objects instead of thrown exceptions.
 - GS1 AI values are kept as strings because leading zeroes are significant.
 - Input and output types are readonly.
 - Encoding and decoding do not depend on process state, clocks, network calls, or global configuration.
@@ -96,9 +96,15 @@ The library covers the uncompressed URI syntax parts of GS1 Digital Link URI Syn
 - Duplicate query keys, with the last value taking precedence
 - Query strings using either `&` or `;` delimiters
 
+It also includes focused compressed URI support:
+
+- Decode SGTIN-96 compressed `eh...` and `ex...` path segments.
+- Encode GTIN + serial links as SGTIN-96 compressed path segments.
+- Use hex or base64url compressed output.
+
 It does not implement:
 
-- Compressed Digital Link URI syntax
+- Compressed schemes beyond the supported SGTIN-96 path form
 - GS1 resolver behavior
 - Resolver Description File validation
 - Element string parsing
@@ -145,6 +151,8 @@ const result = decodeDigitalLink("https://id.gs1.org/01/09520123456788/21/SERIAL
 
 Returns `Result<DigitalLinkError, DigitalLink>`.
 
+`decodeDigitalLink` also recognizes supported compressed SGTIN-96 path segments and returns the decoded `DigitalLink`.
+
 ### `isDigitalLinkUri(uri)`
 
 Returns `true` when a URI can be decoded as a supported GS1 Digital Link URI.
@@ -152,6 +160,41 @@ Returns `true` when a URI can be decoded as a supported GS1 Digital Link URI.
 ```ts
 isDigitalLinkUri("https://id.gs1.org/01/09520123456788");
 ```
+
+### `encodeCompressedDigitalLink(link, options)`
+
+Encodes a GTIN + serial link as an SGTIN-96 compressed Digital Link URI.
+
+```ts
+const result = encodeCompressedDigitalLink(
+  {
+    stem: "https://example.com",
+    primary: { ai: "01", value: "09528765123457" },
+    qualifiers: [{ ai: "21", value: "123456789123" }]
+  },
+  {
+    companyPrefixLength: 7,
+    format: "base64url"
+  }
+);
+
+if (result.ok) {
+  console.log(result.value);
+  // https://example.com/exMBZFlvQMDly-mRqD
+}
+```
+
+The compressed encoder currently supports SGTIN-96 only. The input must contain primary AI `01`, exactly one serial qualifier AI `21`, and no query attributes.
+
+### `decodeCompressedDigitalLink(uri)`
+
+Decodes a supported compressed Digital Link URI directly.
+
+```ts
+const result = decodeCompressedDigitalLink("https://example.com/exMBZFlvQMDly-mRqD");
+```
+
+Returns `Result<DigitalLinkError, DigitalLink>`.
 
 ### `normalizeGtin(value)`
 
@@ -179,22 +222,6 @@ if (digit.ok) {
 }
 ```
 
-### Extraction helpers
-
-Decoded links keep AI/value pairs in their GS1 form. For application code that wants named accessors, the package also exports lookup maps and small extraction helpers:
-
-```ts
-const link = decodeDigitalLink("https://id.example/01/09520123456788/10/LOT123?17=250101");
-
-if (link.ok) {
-  extractPrimaryValue(link.value, "GTIN");
-  extractQualifierValue(link.value, "LOT");
-  extractAttributeValue(link.value, "EXPIRY_DATE");
-}
-```
-
-Extractor keys are semantic string unions generated from the GS1 AI catalogue. Raw AI strings such as `01` are intentionally not accepted by the extraction helpers.
-
 ## Handling Errors
 
 Every validation function returns a boolean-discriminated `Result` union, so validation errors are handled as data. Narrow with `result.ok`.
@@ -213,15 +240,6 @@ if (!result.ok) {
 }
 ```
 
-The package also exports optional `Result` helpers for composition-heavy code:
-
-- `ok`
-- `err`
-- `isOk`
-- `isErr`
-- `map`
-- `flatMap`
-
 `DigitalLinkError.code` is one of:
 
 - `InvalidUri`
@@ -235,6 +253,8 @@ The package also exports optional `Result` helpers for composition-heavy code:
 - `InvalidPathOrder`
 - `InvalidStem`
 - `InvalidQuery`
+- `InvalidCompression`
+- `UnsupportedCompressionScheme`
 - `LegacyConvenienceAlpha`
 - `ReservedExtensionKey`
 
