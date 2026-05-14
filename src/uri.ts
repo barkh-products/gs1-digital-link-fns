@@ -9,7 +9,8 @@ import {
 import { err, isErr, ok, type Result } from "./result.js";
 import type { AiPair, DigitalLink, DigitalLinkError } from "./types.js";
 
-const encodeSegment = (value: string): string => encodeURIComponent(value);
+const encodeGs1Value = (value: string): string =>
+  encodeURIComponent(value).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
 
 const decodeSegment = (value: string): Result<DigitalLinkError, string> => {
   try {
@@ -202,7 +203,7 @@ export const decodeDigitalLink = (uri: string): Result<DigitalLinkError, Digital
     return attributeResult;
   }
 
-  const stemPath = stemSegments.length === 0 ? "" : `/${stemSegments.map(encodeSegment).join("/")}`;
+  const stemPath = stemSegments.length === 0 ? "" : `/${stemSegments.map(encodeGs1Value).join("/")}`;
   const stem = `${parsed.value.origin}${stemPath}`;
 
   return ok({
@@ -254,16 +255,19 @@ export const encodeDigitalLink = (link: DigitalLink): Result<DigitalLinkError, s
   }
 
   const pathPairs = [link.primary, ...qualifiers]
-    .flatMap((pair) => [pair.ai, encodeSegment(pair.value)])
+    .flatMap((pair) => [pair.ai, encodeGs1Value(pair.value)])
     .join("/");
   const base = `${trimTrailingSlash(link.stem)}/${pathPairs}`;
-  const params = new URLSearchParams();
+  const params = new Map<string, string>();
 
   for (const attribute of attributes) {
     params.set(attribute.ai, attribute.value);
   }
 
-  const query = params.size > 0 ? `?${params.toString()}` : "";
+  const query =
+    params.size > 0
+      ? `?${[...params.entries()].map(([key, value]) => `${encodeGs1Value(key)}=${encodeGs1Value(value)}`).join("&")}`
+      : "";
 
   return ok(`${base}${query}`);
 };
