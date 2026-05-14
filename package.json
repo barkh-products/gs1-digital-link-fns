@@ -20,7 +20,8 @@
   },
   "scripts": {
     "build": "tsdown src/index.ts --format esm --dts",
-    "check": "npm run typecheck && npm run coverage && npm run build",
+    "check": "npm run check:runtime-deps && npm run typecheck && npm run coverage && npm run build",
+    "check:runtime-deps": "node scripts/check-runtime-deps.mjs",
     "coverage": "vitest run --coverage",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -87,7 +87,7 @@ const pairSegments = (segments: readonly string[]): Result<DigitalLinkError, rea
 
 const decodeQueryComponent = (value: string): Result<DigitalLinkError, string> => {
   try {
-    return ok(decodeURIComponent(value.replace(/\+/g, " ")));
+    return ok(decodeURIComponent(value));
   } catch {
     return err({
       code: "InvalidQuery",
@@ -148,6 +148,13 @@ export const decodeDigitalLink = (uri: string): Result<DigitalLinkError, Digital
     return err({
       code: "InvalidUri",
       message: "GS1 Digital Link URI syntax does not include fragment identifiers."
+    });
+  }
+
+  if (parsed.value.pathname.length > 1 && parsed.value.pathname.endsWith("/")) {
+    return err({
+      code: "InvalidUri",
+      message: "GS1 Digital Link URI syntax does not include a trailing slash."
     });
   }
 

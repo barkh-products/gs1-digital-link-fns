@@ -209,12 +209,14 @@ describe("GS1 Digital Link URI encoding", () => {
     ).toMatchObject({ tag: "Err", error: { code: "ReservedExtensionKey", ai: "linkType" } });
 
     expect(
-      encodeDigitalLink({
-        stem: "https://id.example",
-        primary: { ai: "01", value: "09520123456788" },
-        attributes: [{ ai: "bad#key", value: "ok" }]
-      })
-    ).toMatchObject({ tag: "Err", error: { code: "InvalidQuery", ai: "bad#key" } });
+      expectOk(
+        encodeDigitalLink({
+          stem: "https://id.example",
+          primary: { ai: "01", value: "09520123456788" },
+          attributes: [{ ai: "bad#key", value: "ok#value" }]
+        })
+      )
+    ).toBe("https://id.example/01/09520123456788?bad%23key=ok%23value");
   });
 
   it("rejects invalid stems, unsupported schemes, and stems with query or fragment", () => {
@@ -329,6 +331,10 @@ describe("GS1 Digital Link URI decoding", () => {
       tag: "Err",
       error: { code: "InvalidUri" }
     });
+    expect(decodeDigitalLink("https://id.example/01/09520123456788/")).toMatchObject({
+      tag: "Err",
+      error: { code: "InvalidUri" }
+    });
   });
 
   it("parses semicolon query delimiters and validates query syntax", () => {
@@ -376,13 +382,9 @@ describe("GS1 Digital Link URI decoding", () => {
       tag: "Err",
       error: { code: "ReservedExtensionKey", ai: "context" }
     });
-    expect(decodeDigitalLink("https://id.example/01/09520123456788?bad%23key=ok")).toMatchObject({
-      tag: "Err",
-      error: { code: "InvalidQuery", ai: "bad#key" }
-    });
-    expect(decodeDigitalLink("https://id.example/01/09520123456788?bad=ok%23")).toMatchObject({
-      tag: "Err",
-      error: { code: "InvalidQuery", ai: "bad" }
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?bad%23key=ok%23value")).toMatchObject({
+      tag: "Ok",
+      value: { attributes: [{ ai: "bad#key", value: "ok#value" }] }
     });
   });
 
@@ -397,7 +399,7 @@ describe("GS1 Digital Link URI decoding", () => {
       error: { code: "UnsupportedQualifier", ai: "254" }
     });
 
-    expect(decodeDigitalLink("https://id.example/00/123456789012345678/10/LOT")).toMatchObject({
+    expect(decodeDigitalLink("https://id.example/00/123456789012345675/10/LOT")).toMatchObject({
       tag: "Err",
       error: { code: "UnsupportedQualifier", ai: "10" }
     });

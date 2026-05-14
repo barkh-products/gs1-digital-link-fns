@@ -48,11 +48,12 @@ Included:
 - Collapse duplicate query keys by last value.
 - Reject fragment identifiers because the formal section 4.11 URI patterns do not include fragments.
 - Accept the section 5 example URIs covered by the initial conformance suite.
+- Validate GS1 check digits where the Digital Link validation guidance identifies a check digit position: GTIN, ITIP, SSCC, GDTI, GLN, GRAI, GSRN, GSRN-P, GSIN, GCN, and data attributes `02` and `410` through `416`.
+- Keep tests independent of `digital-link.js`; that package may be used temporarily while developing fixtures, but it is not a library or test-suite dependency.
 
 Out of scope for this URI syntax library:
 
 - Element string parsing and FNC1 group separator handling.
-- GS1 check digit validation from the General Specifications.
 - Resolver behavior and Resolver Description File checks from GS1-Conformant Resolver Standard.
 - Semantic data relationship constraints from GS1 General Specifications section 4.14.
 

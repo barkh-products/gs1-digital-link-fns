@@ -17,6 +17,7 @@ export type DigitalLinkErrorCode =
   | "UnsupportedPrimaryKey"
   | "UnsupportedQualifier"
   | "UnsupportedAttribute"
+  | "InvalidCheckDigit"
   | "InvalidValue"
   | "InvalidPathOrder"
   | "InvalidStem"

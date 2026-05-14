@@ -1,5 +1,6 @@
 import type { AiPair, DigitalLinkError } from "./types.js";
 import { err, ok, type Result } from "./result.js";
+import { validateGs1CheckDigit } from "./check-digit.js";
 
 type AiMetadata = {
   readonly ai: string;
@@ -218,6 +219,31 @@ export const attributeMetadata = Object.fromEntries(attributeEntries.map((entry)
   AiMetadata
 >;
 
+const primaryCheckDigitIndex = {
+  "00": 17,
+  "01": 13,
+  "253": 12,
+  "255": 12,
+  "402": 16,
+  "414": 12,
+  "415": 12,
+  "417": 12,
+  "8006": 13,
+  "8017": 17,
+  "8018": 17
+} as const satisfies Readonly<Record<string, number>>;
+
+const attributeCheckDigitIndex = {
+  "02": 13,
+  "410": 12,
+  "411": 12,
+  "412": 12,
+  "413": 12,
+  "414": 12,
+  "415": 12,
+  "416": 12
+} as const satisfies Readonly<Record<string, number>>;
+
 const legacyConvenienceAlphas = new Set([
   "gtin",
   "itip",
@@ -253,13 +279,29 @@ export const validatePrimary = (pair: AiPair): Result<DigitalLinkError, AiPair> 
     });
   }
 
-  return metadata.pattern.test(pair.value)
-    ? ok(pair)
-    : err({
+  if (!metadata.pattern.test(pair.value)) {
+    return err({
         ai: pair.ai,
         code: "InvalidValue",
         message: `Value ${pair.value} does not match the ${metadata.label} format.`
       });
+  }
+
+  if (pair.ai === "8003") {
+    const checkDigitResult = validateGs1CheckDigit(pair.ai, pair.value.slice(1, 14), 12);
+
+    return checkDigitResult.tag === "Ok" ? ok(pair) : checkDigitResult;
+  }
+
+  const checkDigitIndex = primaryCheckDigitIndex[pair.ai as keyof typeof primaryCheckDigitIndex];
+
+  if (checkDigitIndex !== undefined) {
+    const checkDigitResult = validateGs1CheckDigit(pair.ai, pair.value, checkDigitIndex);
+
+    return checkDigitResult.tag === "Ok" ? ok(pair) : checkDigitResult;
+  }
+
+  return ok(pair);
 };
 
 export const validateQualifiers = (
@@ -315,8 +357,8 @@ export const validateQualifiers = (
       });
 };
 
-const extensionKey = /^\d*[-.!$&'()*+,;A-Za-z_:@/?~][-.!$&'()*+,;0-9A-Za-z_:@/?~]*$/;
-const extensionValue = /^[-.!$&'()*+,;0-9A-Za-z_:=@/?~]*$/;
+const extensionKey = /^\d*[-.!$&'()*+,;A-Za-z_:@/?~#%[\]][-.!$&'()*+,;0-9A-Za-z_:@/?~#%[\]]*$/;
+const extensionValue = /^[-.!$&'()*+,;0-9A-Za-z_:=@/?~#%[\]]*$/;
 const reservedExtensionKeys = new Set(["linkType", "context"]);
 
 export const validateAttributes = (attributes: readonly AiPair[]): Result<DigitalLinkError, readonly AiPair[]> => {
@@ -330,6 +372,23 @@ export const validateAttributes = (attributes: readonly AiPair[]): Result<Digita
           code: "InvalidValue",
           message: `Value ${attribute.value} does not match the ${metadata.label} format.`
         });
+      }
+
+      const primaryCheckDigit = primaryCheckDigitIndex[attribute.ai as keyof typeof primaryCheckDigitIndex];
+      const attributeCheckDigit = attributeCheckDigitIndex[attribute.ai as keyof typeof attributeCheckDigitIndex];
+
+      if (attribute.ai === "8003") {
+        const checkDigitResult = validateGs1CheckDigit(attribute.ai, attribute.value.slice(1, 14), 12);
+
+        if (checkDigitResult.tag === "Err") {
+          return checkDigitResult;
+        }
+      } else if (primaryCheckDigit !== undefined || attributeCheckDigit !== undefined) {
+        const checkDigitResult = validateGs1CheckDigit(attribute.ai, attribute.value, primaryCheckDigit ?? attributeCheckDigit!);
+
+        if (checkDigitResult.tag === "Err") {
+          return checkDigitResult;
+        }
       }
 
       continue;

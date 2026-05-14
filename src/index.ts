@@ -10,5 +10,6 @@ export {
   type Result
 } from "./result.js";
 export { normalizeGtin } from "./ai.js";
+export { calculateGs1CheckDigit } from "./check-digit.js";
 export { decodeDigitalLink, encodeDigitalLink, isDigitalLinkUri } from "./uri.js";
 export type { AiPair, DigitalLink, DigitalLinkError, DigitalLinkErrorCode } from "./types.js";
