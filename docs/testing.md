@@ -11,6 +11,7 @@ The test suite is intentionally tied to GS1 Digital Link URI Syntax 1.6.0:
 - `&` and `;` query delimiters are covered from section 4.11.
 - The section 5 example URI set is represented in table-driven decoding tests.
 - Percent encoding of literal `/` characters in AI values is covered by the examples in section 5.
+- Percent encoding of literal `!`, `'`, `(`, `)`, and `*` is covered because JavaScript's standard `encodeURIComponent` does not escape those characters by default.
 - Fragment identifiers are rejected because the formal `referenceGS1webURI` and `uncompressedCustomGS1webURI` rules do not include fragments.
 
 Reference: https://ref.gs1.org/standards/digital-link/uri-syntax/

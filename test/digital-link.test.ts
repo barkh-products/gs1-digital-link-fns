@@ -45,6 +45,19 @@ describe("GS1 Digital Link URI encoding", () => {
     expect(uri).toBe("https://id.example/products/01/09520123456788/10/ABC%2F123?17=250101");
   });
 
+  it("percent-encodes GS1 literal symbol characters that encodeURIComponent leaves unescaped", () => {
+    const uri = expectOk(
+      encodeDigitalLink({
+        stem: "https://id.example",
+        primary: { ai: "01", value: "09520123456788" },
+        qualifiers: [{ ai: "10", value: "A!'()*" }],
+        attributes: [{ ai: "23P", value: "V!'()*" }]
+      })
+    );
+
+    expect(uri).toBe("https://id.example/01/09520123456788/10/A%21%27%28%29%2A?23P=V%21%27%28%29%2A");
+  });
+
   it("encodes duplicate attributes with the last value taking precedence", () => {
     const uri = expectOk(
       encodeDigitalLink({
