@@ -160,7 +160,7 @@ Normalizes GTIN-8, GTIN-12, GTIN-13, or GTIN-14 input to the 14-digit Digital Li
 ```ts
 const gtin = normalizeGtin("9520123456788");
 
-if (isOk(gtin)) {
+if (gtin.ok) {
   console.log(gtin.value);
   // 09520123456788
 }
@@ -173,7 +173,7 @@ Calculates the GS1 modulo-10 check digit for a numeric value body.
 ```ts
 const digit = calculateGs1CheckDigit("0952012345678");
 
-if (isOk(digit)) {
+if (digit.ok) {
   console.log(digit.value);
   // 8
 }
@@ -197,23 +197,23 @@ Extractor keys are semantic string unions generated from the GS1 AI catalogue. R
 
 ## Handling Errors
 
-Every validation function returns a boolean-discriminated `Result` union, so validation errors are handled as data. You can narrow with `isOk`, `isErr`, or `result.ok`.
+Every validation function returns a boolean-discriminated `Result` union, so validation errors are handled as data. Narrow with `result.ok`.
 
 ```ts
-import { encodeDigitalLink, isErr } from "gs1-digital-link-fns";
+import { encodeDigitalLink } from "gs1-digital-link-fns";
 
 const result = encodeDigitalLink({
   stem: "https://id.example",
   primary: { ai: "01", value: "9520123456788" }
 });
 
-if (isErr(result)) {
+if (!result.ok) {
   console.error(result.error.code);
   // InvalidValue
 }
 ```
 
-The package also exports small `Result` helpers for composition-heavy code:
+The package also exports optional `Result` helpers for composition-heavy code:
 
 - `ok`
 - `err`
