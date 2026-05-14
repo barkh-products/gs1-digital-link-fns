@@ -64,10 +64,9 @@ if (result.ok) {
 Extractor keys can be:
 
 - semantic keys such as `EXPIRY_DATE`, `BATCH_OR_LOT`, or `PAYMENT_REFERENCE`
-- generated AI keys such as `AI_17`, `AI_10`, or `AI_8020`
-- raw AI strings such as `17`, `10`, or `8020`
+- disambiguated semantic keys for repeated GS1 data titles, such as `NET_WEIGHT_KG_APPLICATION_IDENTIFIER_3103`
 
-The package exports `attributeKeyToAi`, `qualifierKeyToAi`, `primaryKeyToAi`, and `allKeyToAi`. These lookup maps are generated from the documented AI catalogue encoded by the library, so every supported documented AI has at least an `AI_<code>` key.
+The package exports `attributeKeyToAi`, `qualifierKeyToAi`, `primaryKeyToAi`, and `allKeyToAi`. These lookup maps are generated from the documented AI catalogue encoded by the library. Extractor parameters are strict semantic string unions; raw AI strings like `17` and generated code keys like `AI_17` are intentionally not accepted.
 
 ## Design
 
@@ -187,14 +186,14 @@ Decoded links keep AI/value pairs in their GS1 form. For application code that w
 ```ts
 const link = decodeDigitalLink("https://id.example/01/09520123456788/10/LOT123?17=250101");
 
-if (isOk(link)) {
+if (link.ok) {
   extractPrimaryValue(link.value, "GTIN");
   extractQualifierValue(link.value, "LOT");
   extractAttributeValue(link.value, "EXPIRY_DATE");
 }
 ```
 
-You can pass semantic keys such as `GTIN`, lookup keys such as `AI_01`, or raw AI strings such as `01`.
+Extractor keys are semantic string unions generated from the GS1 AI catalogue. Raw AI strings such as `01` are intentionally not accepted by the extraction helpers.
 
 ## Handling Errors
 

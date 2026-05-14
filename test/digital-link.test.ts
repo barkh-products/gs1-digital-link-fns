@@ -443,19 +443,31 @@ describe("GTIN normalization", () => {
 });
 
 describe("AI value extraction helpers", () => {
-  it("extracts attributes and qualifiers by semantic key, AI lookup key, and raw AI", () => {
+  it("extracts attributes and qualifiers by semantic keys", () => {
     const decoded = expectOk(
       decodeDigitalLink("https://id.example/01/09520123456788/10/LOT123/21/SERIAL123?17=250101&3103=000195")
     );
 
     expect(extractAttributeValue(decoded, "EXPIRY_DATE")).toBe("250101");
-    expect(extractAttributeValue(decoded, "AI_3103")).toBe("000195");
-    expect(extractAttributeValue(decoded, "17")).toBe("250101");
+    expect(extractAttributeValue(decoded, "NET_WEIGHT_KG_APPLICATION_IDENTIFIER_3103")).toBe("000195");
     expect(extractQualifierValue(decoded, "BATCH_OR_LOT")).toBe("LOT123");
     expect(extractQualifierValue(decoded, "SERIAL")).toBe("SERIAL123");
-    expect(extractQualifierValue(decoded, "21")).toBe("SERIAL123");
     expect(extractPrimaryValue(decoded, "GTIN")).toBe("09520123456788");
-    expect(extractPrimaryValue(decoded, "01")).toBe("09520123456788");
+  });
+
+  it("rejects raw AI and generated AI keys at compile time", () => {
+    const decoded = expectOk(decodeDigitalLink("https://id.example/01/09520123456788/10/LOT123?17=250101"));
+
+    // @ts-expect-error Extractor keys are semantic string unions, not raw AI strings.
+    const rawAttributeKey: Parameters<typeof extractAttributeValue>[1] = "17";
+    // @ts-expect-error Extractor keys are semantic string unions, not generated AI code strings.
+    const generatedAttributeKey: Parameters<typeof extractAttributeValue>[1] = "AI_17";
+    // @ts-expect-error Qualifier extraction also rejects raw AI strings.
+    const rawQualifierKey: Parameters<typeof extractQualifierValue>[1] = "10";
+
+    expect(extractAttributeValue(decoded, rawAttributeKey)).toBeUndefined();
+    expect(extractAttributeValue(decoded, generatedAttributeKey)).toBeUndefined();
+    expect(extractQualifierValue(decoded, rawQualifierKey)).toBeUndefined();
   });
 
   it("returns undefined for absent fields or mismatched primary keys", () => {
@@ -492,28 +504,27 @@ describe("AI value extraction helpers", () => {
 
   it("exposes lookup keys for the documented primary, qualifier, and data attribute AI catalogues", () => {
     expect(primaryKeyToAi).toMatchObject({
-      AI_00: "00",
-      AI_01: "01",
-      AI_8006: "8006",
-      GTIN: "01"
+      GSRN_PROVIDER: "8017",
+      GTIN: "01",
+      SSCC: "00"
     });
     expect(qualifierKeyToAi).toMatchObject({
-      AI_10: "10",
-      AI_8020: "8020",
-      PAYMENT_REFERENCE: "8020"
+      BATCH_OR_LOT: "10",
+      PAYMENT_REFERENCE: "8020",
+      THIRD_PARTY_SERIAL_EXTENSION: "235"
     });
     expect(attributeKeyToAi).toMatchObject({
-      AI_02: "02",
-      AI_17: "17",
-      AI_7259: "7259",
-      AI_8112: "8112",
-      AI_99: "99",
-      EXPIRY_DATE: "17"
+      CONTENT: "02",
+      EXPIRY_DATE: "17",
+      IMEI: "8040",
+      INTERNAL_APPLICATION_IDENTIFIER_99: "99",
+      NHRN_SRN: "717",
+      POSITIVE_OFFER_FILE_COUPON_CODE_IDENTIFICATION_FOR_USE_IN_NORTH_AMERICA: "8112"
     });
     expect(allKeyToAi).toMatchObject({
-      AI_01: "01",
-      AI_17: "17",
-      AI_8020: "8020"
+      EXPIRY_DATE: "17",
+      GTIN: "01",
+      PAYMENT_REFERENCE: "8020"
     });
   });
 });

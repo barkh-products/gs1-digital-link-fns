@@ -19,7 +19,6 @@ export {
   extractQualifierValue,
   primaryKeyToAi,
   qualifierKeyToAi,
-  type AiLookupKey,
   type KnownAttributeKey,
   type KnownPrimaryKey,
   type KnownQualifierKey

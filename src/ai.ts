@@ -104,7 +104,7 @@ const attributeEntries = [
   ...codes(["3930", "3931", "3932", "3933", "3934", "3935", "3936", "3937", "3938", "3939"], "price with ISO currency", fixedThenDigits(3, 1, 15)),
   ...codes(["3940", "3941", "3942", "3943"], "percent off", digits(4)),
   ...codes(["3950", "3951", "3952", "3953", "3954", "3955"], "amount payable per unit", digits(6)),
-  ...codes(["710", "711", "712", "713", "714", "715", "716"], "national healthcare reimbursement number", xChars(1, 20)),
+  ...codes(["710", "711", "712", "713", "714", "715", "716", "717"], "national healthcare reimbursement number", xChars(1, 20)),
   ...codes(["7230", "7231", "7232", "7233", "7234", "7235", "7236", "7237", "7238", "7239"], "certification reference", xChars(3, 30)),
   ...aiEntries(primaryMetadata),
   { ai: "02", label: "CONTENT", pattern: digits(14) },
@@ -211,6 +211,11 @@ const attributeEntries = [
   { ai: "4330", label: "Maximum temperature Fahrenheit", pattern: /^\d{6}-?$/ },
   { ai: "4331", label: "Maximum temperature Celsius", pattern: /^\d{6}-?$/ },
   { ai: "4332", label: "Minimum temperature", pattern: /^\d{6}-?$/ },
+  { ai: "4333", label: "Minimum temperature Celsius", pattern: /^\d{6}-?$/ },
+  { ai: "8040", label: "IMEI", pattern: digits(15) },
+  { ai: "8041", label: "IMEI2", pattern: digits(15) },
+  { ai: "8042", label: "ESIM", pattern: digits(32) },
+  { ai: "8043", label: "PSIM", pattern: digitsBetween(18, 20) },
   ...codes(["91", "92", "93", "94", "95", "96", "97", "98", "99"], "Internal company information", xChars(1, 90))
 ] as const satisfies readonly AiMetadata[];
 
