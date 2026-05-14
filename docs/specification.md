@@ -1,6 +1,6 @@
 # GS1 Digital Link Encoding/Decoding Specification
 
-Status: initial implementation specification.
+Status: URI Syntax 1.6.0 conformance specification for the library's uncompressed URI encoder/decoder.
 
 Target standard: GS1 Digital Link Standard: URI Syntax 1.6.0, ratified March 2025.
 
@@ -31,28 +31,30 @@ The library is deliberately functional:
 - Encoding and decoding keep the GS1 AI values as strings because leading zeroes are significant.
 - GTIN normalization from 8/12/13 digits to 14 digits is explicit via `normalizeGtin`; `encodeDigitalLink` and `decodeDigitalLink` validate the Digital Link form itself.
 
-## Initial Scope
+## Conformance Scope
 
-Version 0.0 starts with URI syntax, not resolver behavior and not compression.
+Version 0.0 targets the uncompressed URI syntax defined in GS1 Digital Link URI Syntax 1.6.0.
 
 Included:
 
 - Decode uncompressed HTTP/HTTPS GS1 Digital Link URIs.
 - Encode uncompressed HTTP/HTTPS GS1 Digital Link URIs.
 - Preserve custom URI stems before the GS1 path.
-- Validate primary key value formats for the primary AIs listed in URI Syntax 1.6.0.
-- Validate key qualifier formats and order for the common path rules.
-- Encode data attributes and custom extension query pairs.
+- Validate primary key value formats for the primary AIs listed in URI Syntax 1.6.0 section 4.5.
+- Validate key qualifier formats and path variants from sections 4.6 through 4.9, including mandatory `415` + `8020`, `upui-path`, `eoid-path`, `fid-path`, and `mid-path`.
+- Validate the complete section 4.10 data attribute query catalogue included in URI Syntax 1.6.0.
+- Validate extension query parameters from section 4.10.1, including rejection of all-numeric extension keys and reserved `linkType` / `context` keys.
+- Parse query strings delimited by either `&` or `;`.
 - Collapse duplicate query keys by last value.
+- Reject fragment identifiers because the formal section 4.11 URI patterns do not include fragments.
+- Accept the section 5 example URIs covered by the initial conformance suite.
 
-Deferred:
+Out of scope for this URI syntax library:
 
 - Element string parsing and FNC1 group separator handling.
 - GS1 check digit validation from the General Specifications.
-- Full data attribute catalogue validation.
-- Compressed Digital Link URI support.
-- Resolver link type behavior.
-- Canonical sorting of query parameters.
+- Resolver behavior and Resolver Description File checks from GS1-Conformant Resolver Standard.
+- Semantic data relationship constraints from GS1 General Specifications section 4.14.
 
 ## API Sketch
 
@@ -71,7 +73,6 @@ type DigitalLink = {
   readonly primary: AiPair;
   readonly qualifiers?: readonly AiPair[];
   readonly attributes?: readonly AiPair[];
-  readonly fragment?: string;
 };
 
 declare const encodeDigitalLink: (link: DigitalLink) => Result<DigitalLinkError, string>;
@@ -89,3 +90,7 @@ declare const normalizeGtin: (value: string) => Result<DigitalLinkError, string>
 - Path values are percent-encoded so a lot value `ABC/123` is emitted as `ABC%2F123`.
 - `/gtin/09520123456788` is rejected.
 - Duplicate query keys decode with the last value taking precedence.
+- `https://id.gs1.org/01/09520123456788?17=201225&3103=000195&3922=0299` is accepted.
+- `https://id.gs1.org/414/9520123456788/254/32a%2Fb` decodes the qualifier value as `32a/b`.
+- Query parameter `236=12098` is rejected because all-numeric extension keys are forbidden and AI `236` is not a defined data attribute.
+- Query parameter `23P=12098` is accepted as an extension parameter.

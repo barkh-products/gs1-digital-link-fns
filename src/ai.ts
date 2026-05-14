@@ -266,26 +266,25 @@ export const validateQualifiers = (
   primaryAi: string,
   qualifiers: readonly AiPair[]
 ): Result<DigitalLinkError, readonly AiPair[]> => {
-  const allowed = qualifierOrderByPrimary[primaryAi] ?? [];
-  let previous = -1;
+  const rules = pathRulesByPrimary[primaryAi]!;
+  const allowedForPrimary = new Set(rules.flat());
 
   for (const qualifier of qualifiers) {
     const metadata = qualifierMetadata[qualifier.ai as keyof typeof qualifierMetadata];
-    const index = allowed.indexOf(qualifier.ai);
 
-    if (metadata === undefined || index === -1) {
+    if (metadata === undefined) {
+      return err({
+        ai: qualifier.ai,
+        code: "UnsupportedQualifier",
+        message: `AI ${qualifier.ai} is not a supported GS1 Digital Link key qualifier.`
+      });
+    }
+
+    if (!allowedForPrimary.has(qualifier.ai)) {
       return err({
         ai: qualifier.ai,
         code: "UnsupportedQualifier",
         message: `AI ${qualifier.ai} is not a valid qualifier for primary AI ${primaryAi}.`
-      });
-    }
-
-    if (index < previous) {
-      return err({
-        ai: qualifier.ai,
-        code: "InvalidPathOrder",
-        message: `Qualifier AI ${qualifier.ai} is out of order for primary AI ${primaryAi}.`
       });
     }
 
@@ -296,11 +295,72 @@ export const validateQualifiers = (
         message: `Value ${qualifier.value} does not match the ${metadata.label} format.`
       });
     }
-
-    previous = index;
   }
 
-  return ok(qualifiers);
+  const sequence = qualifiers.map((qualifier) => qualifier.ai);
+  const isAllowed = rules.some(
+    (rule) => rule.length === sequence.length && rule.every((qualifierAi, index) => qualifierAi === sequence[index])
+  );
+  const invalidIndex = sequence.findIndex((_, index) =>
+    rules.every((rule) => sequence.slice(0, index + 1).some((qualifierAi, prefixIndex) => qualifierAi !== rule[prefixIndex]))
+  );
+  const invalidAi = invalidIndex === -1 ? (sequence[0] ?? primaryAi) : sequence[invalidIndex]!;
+
+  return isAllowed
+    ? ok(qualifiers)
+    : err({
+        ai: invalidAi,
+        code: "InvalidPathOrder",
+        message: `Qualifier sequence ${sequence.join(",")} is not valid for primary AI ${primaryAi}.`
+      });
+};
+
+const extensionKey = /^\d*[-.!$&'()*+,;A-Za-z_:@/?~][-.!$&'()*+,;0-9A-Za-z_:@/?~]*$/;
+const extensionValue = /^[-.!$&'()*+,;0-9A-Za-z_:=@/?~]*$/;
+const reservedExtensionKeys = new Set(["linkType", "context"]);
+
+export const validateAttributes = (attributes: readonly AiPair[]): Result<DigitalLinkError, readonly AiPair[]> => {
+  for (const attribute of attributes) {
+    const metadata = attributeMetadata[attribute.ai];
+
+    if (metadata !== undefined) {
+      if (!metadata.pattern.test(attribute.value)) {
+        return err({
+          ai: attribute.ai,
+          code: "InvalidValue",
+          message: `Value ${attribute.value} does not match the ${metadata.label} format.`
+        });
+      }
+
+      continue;
+    }
+
+    if (/^\d+$/.test(attribute.ai)) {
+      return err({
+        ai: attribute.ai,
+        code: "UnsupportedAttribute",
+        message: `Numeric query key ${attribute.ai} is not a GS1 Digital Link data attribute.`
+      });
+    }
+
+    if (reservedExtensionKeys.has(attribute.ai)) {
+      return err({
+        ai: attribute.ai,
+        code: "ReservedExtensionKey",
+        message: `Extension key ${attribute.ai} is reserved by GS1 resolver standards.`
+      });
+    }
+
+    if (!extensionKey.test(attribute.ai) || !extensionValue.test(attribute.value)) {
+      return err({
+        ai: attribute.ai,
+        code: "InvalidQuery",
+        message: `Extension parameter ${attribute.ai} is not valid GS1 Digital Link query syntax.`
+      });
+    }
+  }
+
+  return ok(attributes);
 };
 
 export const normalizeGtin = (value: string): Result<DigitalLinkError, string> => {

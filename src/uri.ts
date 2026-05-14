@@ -2,6 +2,7 @@ import {
   isLegacyConvenienceAlpha,
   isPrimaryAi,
   isQualifierAi,
+  validateAttributes,
   validatePrimary,
   validateQualifiers
 } from "./ai.js";
@@ -83,14 +84,50 @@ const pairSegments = (segments: readonly string[]): Result<DigitalLinkError, rea
   return ok(pairs);
 };
 
-const queryPairs = (url: URL): readonly AiPair[] => {
-  const collapsed = new Map<string, string>();
+const decodeQueryComponent = (value: string): Result<DigitalLinkError, string> => {
+  try {
+    return ok(decodeURIComponent(value.replace(/\+/g, " ")));
+  } catch {
+    return err({
+      code: "InvalidQuery",
+      message: `Query component ${value} is not valid percent-encoded data.`
+    });
+  }
+};
 
-  for (const [key, value] of url.searchParams.entries()) {
-    collapsed.set(key, value);
+const queryPairs = (url: URL): Result<DigitalLinkError, readonly AiPair[]> => {
+  const collapsed = new Map<string, string>();
+  const rawQuery = url.search.startsWith("?") ? url.search.slice(1) : url.search;
+
+  if (rawQuery.length === 0) {
+    return ok([]);
   }
 
-  return [...collapsed.entries()].map(([ai, value]) => ({ ai, value }));
+  for (const parameter of rawQuery.split(/[&;]/)) {
+    const separator = parameter.indexOf("=");
+
+    if (separator === -1) {
+      return err({
+        code: "InvalidQuery",
+        message: `Query parameter ${parameter} is not a key=value pair.`
+      });
+    }
+
+    const key = decodeQueryComponent(parameter.slice(0, separator));
+    const value = decodeQueryComponent(parameter.slice(separator + 1));
+
+    if (isErr(key)) {
+      return key;
+    }
+
+    if (isErr(value)) {
+      return value;
+    }
+
+    collapsed.set(key.value, value.value);
+  }
+
+  return ok([...collapsed.entries()].map(([ai, value]) => ({ ai, value })));
 };
 
 export const decodeDigitalLink = (uri: string): Result<DigitalLinkError, DigitalLink> => {
@@ -104,6 +141,13 @@ export const decodeDigitalLink = (uri: string): Result<DigitalLinkError, Digital
 
   if (isErr(scheme)) {
     return scheme;
+  }
+
+  if (parsed.value.hash.length > 0) {
+    return err({
+      code: "InvalidUri",
+      message: "GS1 Digital Link URI syntax does not include fragment identifiers."
+    });
   }
 
   const pathSegments = parsed.value.pathname.split("/").filter((segment) => segment.length > 0);
@@ -146,6 +190,18 @@ export const decodeDigitalLink = (uri: string): Result<DigitalLinkError, Digital
     return qualifierResult;
   }
 
+  const attributes = queryPairs(parsed.value);
+
+  if (isErr(attributes)) {
+    return attributes;
+  }
+
+  const attributeResult = validateAttributes(attributes.value);
+
+  if (isErr(attributeResult)) {
+    return attributeResult;
+  }
+
   const stemPath = stemSegments.length === 0 ? "" : `/${stemSegments.map(encodeSegment).join("/")}`;
   const stem = `${parsed.value.origin}${stemPath}`;
 
@@ -153,8 +209,7 @@ export const decodeDigitalLink = (uri: string): Result<DigitalLinkError, Digital
     stem,
     primary,
     qualifiers,
-    attributes: queryPairs(parsed.value),
-    ...(parsed.value.hash.length > 0 ? { fragment: parsed.value.hash.slice(1) } : {})
+    attributes: attributes.value
   });
 };
 
@@ -191,20 +246,26 @@ export const encodeDigitalLink = (link: DigitalLink): Result<DigitalLinkError, s
     return qualifierResult;
   }
 
+  const attributes = link.attributes ?? [];
+  const attributeResult = validateAttributes(attributes);
+
+  if (isErr(attributeResult)) {
+    return attributeResult;
+  }
+
   const pathPairs = [link.primary, ...qualifiers]
     .flatMap((pair) => [pair.ai, encodeSegment(pair.value)])
     .join("/");
   const base = `${trimTrailingSlash(link.stem)}/${pathPairs}`;
   const params = new URLSearchParams();
 
-  for (const attribute of link.attributes ?? []) {
+  for (const attribute of attributes) {
     params.set(attribute.ai, attribute.value);
   }
 
   const query = params.size > 0 ? `?${params.toString()}` : "";
-  const fragment = link.fragment === undefined ? "" : `#${encodeURIComponent(link.fragment)}`;
 
-  return ok(`${base}${query}${fragment}`);
+  return ok(`${base}${query}`);
 };
 
 export const isDigitalLinkUri = (uri: string): boolean => decodeDigitalLink(uri).tag === "Ok";

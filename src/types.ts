@@ -8,7 +8,6 @@ export type DigitalLink = {
   readonly primary: AiPair;
   readonly qualifiers?: readonly AiPair[];
   readonly attributes?: readonly AiPair[];
-  readonly fragment?: string;
 };
 
 export type DigitalLinkErrorCode =

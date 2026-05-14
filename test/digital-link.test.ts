@@ -53,12 +53,11 @@ describe("GS1 Digital Link URI encoding", () => {
         attributes: [
           { ai: "17", value: "240101" },
           { ai: "17", value: "250101" }
-        ],
-        fragment: "section/1"
+        ]
       })
     );
 
-    expect(uri).toBe("https://id.example/01/09520123456788?17=250101#section%2F1");
+    expect(uri).toBe("https://id.example/01/09520123456788?17=250101");
   });
 
   it("rejects path qualifiers that violate the primary key order", () => {
@@ -95,6 +94,14 @@ describe("GS1 Digital Link URI encoding", () => {
       encodeDigitalLink({
         stem: "https://id.example",
         primary: { ai: "01", value: "09520123456788" },
+        qualifiers: [{ ai: "99", value: "ABC" }]
+      })
+    ).toMatchObject({ tag: "Err", error: { code: "UnsupportedQualifier", ai: "99" } });
+
+    expect(
+      encodeDigitalLink({
+        stem: "https://id.example",
+        primary: { ai: "01", value: "09520123456788" },
         qualifiers: [{ ai: "254", value: "GLN-EXT" }]
       })
     ).toMatchObject({ tag: "Err", error: { code: "UnsupportedQualifier", ai: "254" } });
@@ -106,6 +113,95 @@ describe("GS1 Digital Link URI encoding", () => {
         qualifiers: [{ ai: "10", value: "" }]
       })
     ).toMatchObject({ tag: "Err", error: { code: "InvalidValue", ai: "10" } });
+  });
+
+  it("enforces GS1 path variants from URI Syntax section 4.9", () => {
+    expect(
+      encodeDigitalLink({
+        stem: "https://id.example",
+        primary: { ai: "415", value: "9520123456788" }
+      })
+    ).toMatchObject({ tag: "Err", error: { code: "InvalidPathOrder", ai: "415" } });
+
+    expect(
+      expectOk(
+        encodeDigitalLink({
+          stem: "https://id.example",
+          primary: { ai: "415", value: "9520123456788" },
+          qualifiers: [{ ai: "8020", value: "INV/123" }]
+        })
+      )
+    ).toBe("https://id.example/415/9520123456788/8020/INV%2F123");
+
+    expect(
+      encodeDigitalLink({
+        stem: "https://id.example",
+        primary: { ai: "01", value: "09520123456788" },
+        qualifiers: [
+          { ai: "10", value: "LOT" },
+          { ai: "235", value: "TPX" }
+        ]
+      })
+    ).toMatchObject({ tag: "Err", error: { code: "InvalidPathOrder", ai: "235" } });
+
+    expect(
+      encodeDigitalLink({
+        stem: "https://id.example",
+        primary: { ai: "414", value: "9520123456788" },
+        qualifiers: [
+          { ai: "254", value: "32a" },
+          { ai: "7040", value: "123A" }
+        ]
+      })
+    ).toMatchObject({ tag: "Err", error: { code: "InvalidPathOrder", ai: "7040" } });
+  });
+
+  it("validates GS1 data attributes and extension parameters before encoding", () => {
+    expect(
+      expectOk(
+        encodeDigitalLink({
+          stem: "https://id.example",
+          primary: { ai: "01", value: "09520123456788" },
+          attributes: [
+            { ai: "3100", value: "000123" },
+            { ai: "7007", value: "240101250101" },
+            { ai: "23P", value: "12098=abc" }
+          ]
+        })
+      )
+    ).toBe("https://id.example/01/09520123456788?3100=000123&7007=240101250101&23P=12098%3Dabc");
+
+    expect(
+      encodeDigitalLink({
+        stem: "https://id.example",
+        primary: { ai: "01", value: "09520123456788" },
+        attributes: [{ ai: "17", value: "ABCDEF" }]
+      })
+    ).toMatchObject({ tag: "Err", error: { code: "InvalidValue", ai: "17" } });
+
+    expect(
+      encodeDigitalLink({
+        stem: "https://id.example",
+        primary: { ai: "01", value: "09520123456788" },
+        attributes: [{ ai: "236", value: "12098" }]
+      })
+    ).toMatchObject({ tag: "Err", error: { code: "UnsupportedAttribute", ai: "236" } });
+
+    expect(
+      encodeDigitalLink({
+        stem: "https://id.example",
+        primary: { ai: "01", value: "09520123456788" },
+        attributes: [{ ai: "linkType", value: "gs1:traceability" }]
+      })
+    ).toMatchObject({ tag: "Err", error: { code: "ReservedExtensionKey", ai: "linkType" } });
+
+    expect(
+      encodeDigitalLink({
+        stem: "https://id.example",
+        primary: { ai: "01", value: "09520123456788" },
+        attributes: [{ ai: "bad#key", value: "ok" }]
+      })
+    ).toMatchObject({ tag: "Err", error: { code: "InvalidQuery", ai: "bad#key" } });
   });
 
   it("rejects invalid stems, unsupported schemes, and stems with query or fragment", () => {
@@ -140,6 +236,25 @@ describe("GS1 Digital Link URI encoding", () => {
 });
 
 describe("GS1 Digital Link URI decoding", () => {
+  it.each([
+    "https://id.gs1.org/01/09520123456788",
+    "https://brand.example.com/some-extra/pathinfo/01/09520123456788",
+    "https://id.gs1.org/01/09520123456788/22/2A",
+    "https://id.gs1.org/01/09520123456788/10/ABC123",
+    "https://id.gs1.org/01/09520123456788/21/12345",
+    "https://id.gs1.org/01/09520123456788/10/ABC1/21/12345?17=180426",
+    "https://id.gs1.org/01/09520123456788?3103=000195",
+    "https://id.gs1.org/01/09520123456788?17=201225&3103=000195&3922=0299",
+    "https://id.gs1.org/00/195201234567891232",
+    "https://id.gs1.org/00/195201234567891232?02=09520123456788&37=25&10=ABC123",
+    "https://id.gs1.org/414/9520123456788",
+    "https://id.gs1.org/414/9520123456788/254/32a%2Fb",
+    "https://example.com/8004/9520614141234567?01=09520123456788",
+    "https://example.com/01/09520123456788?8004=9520614141234567"
+  ])("accepts GS1 URI Syntax section 5 example %s", (uri) => {
+    expect(decodeDigitalLink(uri)).toMatchObject({ tag: "Ok" });
+  });
+
   it("decodes a GTIN primary key and stem", () => {
     const decoded = expectOk(decodeDigitalLink("https://id.example/01/09520123456788"));
 
@@ -161,10 +276,11 @@ describe("GS1 Digital Link URI decoding", () => {
     expect(decoded.attributes).toEqual([{ ai: "17", value: "250101" }]);
   });
 
-  it("decodes fragment identifiers", () => {
-    const decoded = expectOk(decodeDigitalLink("https://id.example/01/09520123456788#details"));
-
-    expect(decoded.fragment).toBe("details");
+  it("rejects fragment identifiers because they are outside the GS1 URI syntax pattern", () => {
+    expect(decodeDigitalLink("https://id.example/01/09520123456788#details")).toMatchObject({
+      tag: "Err",
+      error: { code: "InvalidUri" }
+    });
   });
 
   it("rejects GTIN values that are not 14 digits in the Digital Link path", () => {
@@ -199,6 +315,61 @@ describe("GS1 Digital Link URI decoding", () => {
     expect(decodeDigitalLink("https://id.example/01/%E0%A4%A")).toMatchObject({
       tag: "Err",
       error: { code: "InvalidUri" }
+    });
+  });
+
+  it("parses semicolon query delimiters and validates query syntax", () => {
+    const decoded = expectOk(decodeDigitalLink("https://id.example/01/09520123456788?17=250101;10=LOT"));
+
+    expect(decoded.attributes).toEqual([
+      { ai: "17", value: "250101" },
+      { ai: "10", value: "LOT" }
+    ]);
+
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?17")).toMatchObject({
+      tag: "Err",
+      error: { code: "InvalidQuery" }
+    });
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?%E0%A4%A=1")).toMatchObject({
+      tag: "Err",
+      error: { code: "InvalidQuery" }
+    });
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?17=%E0%A4%A")).toMatchObject({
+      tag: "Err",
+      error: { code: "InvalidQuery" }
+    });
+  });
+
+  it("validates data attributes and extension parameters while decoding", () => {
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?3100=000123&23P=12098=abc")).toMatchObject({
+      tag: "Ok",
+      value: {
+        attributes: [
+          { ai: "3100", value: "000123" },
+          { ai: "23P", value: "12098=abc" }
+        ]
+      }
+    });
+
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?17=ABCDEF")).toMatchObject({
+      tag: "Err",
+      error: { code: "InvalidValue", ai: "17" }
+    });
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?236=12098")).toMatchObject({
+      tag: "Err",
+      error: { code: "UnsupportedAttribute", ai: "236" }
+    });
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?context=abc")).toMatchObject({
+      tag: "Err",
+      error: { code: "ReservedExtensionKey", ai: "context" }
+    });
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?bad%23key=ok")).toMatchObject({
+      tag: "Err",
+      error: { code: "InvalidQuery", ai: "bad#key" }
+    });
+    expect(decodeDigitalLink("https://id.example/01/09520123456788?bad=ok%23")).toMatchObject({
+      tag: "Err",
+      error: { code: "InvalidQuery", ai: "bad" }
     });
   });
 
